@@ -38,7 +38,7 @@ func main() {
 	go r.run()
 	// webサーバーを起動
 	log.Println("start web server. PORT: ", *addr)
-	if err := http.ListenAndServe(*addr, nil); err != nil {
+	if err := http.ListenAndServeTLS(*addr, "./ssl.crt", "./ssl.key", nil); err != nil {
 		log.Fatal("ListenAndServe:", err)
 	}
 }

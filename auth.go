@@ -7,8 +7,11 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
+	"time"
 
+	jwt "github.com/dgrijalva/jwt-go"
 	fb "github.com/huandu/facebook"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/facebook"
@@ -132,5 +135,62 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 	default:
 		w.WriteHeader(http.StatusNotFound)
 		fmt.Fprintf(w, "アクション%sには非対応です", action)
+	}
+}
+
+func jwtHandler(w http.ResponseWriter, r *http.Request) {
+	now := time.Now()
+	fmt.Println(now.Add(2 * time.Hour).Unix())
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+		"user_id":         "1",
+		"nbf":             time.Date(2015, 10, 10, 12, 0, 0, 0, time.UTC).Unix(),
+		"expiration_date": strconv.FormatInt(now.Add(2*time.Hour).Unix(), 10),
+	})
+	secret, err := ioutil.ReadFile("./jwt_secret.key")
+	if err != nil {
+		panic(err)
+	}
+	tokenString, err := token.SignedString(secret)
+	if err != nil {
+		panic(err)
+	}
+	w.Write([]byte(tokenString))
+}
+
+func jwtValidator(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
+	tokenString := r.FormValue("token")
+	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("Unexpected signing method: %v", token.Header["alg"])
+		}
+		secret, err := ioutil.ReadFile("./jwt_secret.key")
+		if err != nil {
+			panic(err)
+		}
+		return secret, nil
+	})
+
+	if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
+		fmt.Println(claims["user_id"], claims["expiration_date"])
+		expire_date := claims["expiration_date"]
+		now := time.Now()
+		nowUnix := now.Unix()
+		expDate, err := strconv.ParseInt(expire_date.(string), 10, 64)
+		if err != nil {
+			fmt.Println("failed to parse unix time string to int")
+			panic(err)
+		}
+		fmt.Println(nowUnix)
+		fmt.Println(expire_date.(string))
+		expDateTm := time.Unix(expDate, 0)
+		fmt.Println(expDateTm)
+		fmt.Println(expDateTm.Sub(now))
+		fmt.Println(expDate - nowUnix)
+		if expDate-nowUnix > 0 {
+			fmt.Println("this is valid")
+		}
+	} else {
+		fmt.Println(err)
 	}
 }

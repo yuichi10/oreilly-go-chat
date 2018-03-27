@@ -33,6 +33,8 @@ func main() {
 	http.Handle("/chat", MustAuth(&templateHandler{filename: "chat.html"}))
 	http.Handle("/login", &templateHandler{filename: "login.html"})
 	http.HandleFunc("/auth/", loginHandler)
+	http.HandleFunc("/token", jwtHandler)
+	http.HandleFunc("/validate", jwtValidator)
 	http.Handle("/room", r)
 	// チャットルームを開始
 	go r.run()
